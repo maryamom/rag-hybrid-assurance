@@ -41,38 +41,6 @@ User Query → LangChain Orchestrator → [Vector Search (Qdrant) + Graph Search
 - Interface web responsive
 - Génération de devis interactifs
 
-## 📁 Structure du Projet
-
-```
-├── src/                          # Code source principal
-│   ├── core/                     # Modules centraux
-│   │   ├── orchestrator.py       # Orchestrateur LangChain
-│   │   ├── retrievers.py         # Retrievers vectoriel et graphe
-│   │   └── generators.py         # Générateurs de réponses
-│   ├── auth/                     # Système d'authentification
-│   │   ├── personal_data_auth.py # Auth données personnelles
-│   │   └── client_auth.py        # Auth clients
-│   ├── api/                      # Interface API
-│   │   ├── main.py              # FastAPI principal
-│   │   └── routes/              # Routes API
-│   └── utils/                    # Utilitaires
-├── data_extraction/              # Extraction et vectorisation
-│   ├── pdf_processor.py         # Traitement PDF
-│   ├── vectorizer.py            # Vectorisation données
-│   └── database_setup.py        # Configuration BDD
-├── docs/                         # Documentation
-│   ├── architecture.md          # Architecture détaillée
-│   ├── api_reference.md         # Référence API
-│   └── deployment.md            # Guide déploiement
-├── config/                       # Configuration
-│   ├── database.yaml            # Config bases de données
-│   ├── email.yaml               # Config email
-│   └── models.yaml              # Config modèles IA
-├── tests/                        # Tests
-├── requirements.txt              # Dépendances Python
-└── docker-compose.yml           # Déploiement Docker
-```
-
 ## 🛠️ Installation
 
 ### Prérequis
