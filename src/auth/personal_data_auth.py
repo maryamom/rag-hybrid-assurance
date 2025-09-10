@@ -36,7 +36,7 @@ class PersonalDataAuthSystem:
             'port': '5432',
             'dbname': 'data',
             'user': 'postgres',
-            'password': 'REMOVED_PASSWORD'
+            'password': ' '
         }
         
         # Configuration email (à personnaliser)
