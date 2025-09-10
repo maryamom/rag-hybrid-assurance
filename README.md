@@ -1,10 +1,10 @@
-# 🤖 RAG Hybride pour l'Assurance
+#  RAG Hybride pour l'Assurance
 
-## 📋 Description
+##  Description
 
 Solution RAG (Retrieval-Augmented Generation) hybride intelligente pour les compagnies d'assurance, combinant recherche sémantique et relationnelle pour fournir des réponses précises et contextuelles aux clients.
 
-## 🏗️ Architecture
+##  Architecture
 
 ### Technologies Principales
 - **LangChain** : Orchestrateur central du système
@@ -19,7 +19,7 @@ Solution RAG (Retrieval-Augmented Generation) hybride intelligente pour les comp
 User Query → LangChain Orchestrator → [Vector Search (Qdrant) + Graph Search (Neo4j)] → Context Assembly → DeepSeek v3.1 → Response
 ```
 
-## 🚀 Fonctionnalités
+##  Fonctionnalités
 
 ### ✅ Recherche Intelligente
 - **Recherche Sémantique** : Comprend le sens des questions via embeddings
