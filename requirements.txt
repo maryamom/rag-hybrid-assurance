@@ -1,0 +1,66 @@
+# Core Dependencies
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+websockets==12.0
+pydantic==2.5.0
+python-multipart==0.0.6
+
+# LangChain Ecosystem
+langchain==0.1.0
+langchain-community==0.0.10
+langchain-core==0.1.0
+langchain-openai==0.0.2
+
+# Vector Database & Embeddings
+qdrant-client==1.7.0
+sentence-transformers==2.2.2
+faiss-cpu==1.7.4
+
+# Graph Database
+neo4j==5.15.0
+
+# Database
+psycopg2-binary==2.9.9
+sqlalchemy==2.0.23
+
+# Authentication & Security
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.6
+
+# Email
+smtplib
+email-validator==2.1.0
+
+# HTTP Client
+httpx==0.25.2
+requests==2.31.0
+
+# Data Processing
+pandas==2.1.4
+numpy==1.24.4
+
+# PDF Processing
+PyPDF2==3.0.1
+pdf2image==1.16.3
+Pillow==10.1.0
+
+# NLP
+spacy==3.7.2
+nltk==3.8.1
+
+# Caching
+redis==5.0.1
+
+# Logging & Monitoring
+loguru==0.7.2
+
+# Development
+pytest==7.4.3
+pytest-asyncio==0.21.1
+black==23.11.0
+flake8==6.1.0
+
+# Environment
+python-dotenv==1.0.0
+pyyaml==6.0.1

@@ -1,0 +1,103 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/
+
+# Database
+*.db
+*.sqlite3
+
+# Environment Variables
+.env
+.env.local
+.env.production
+
+# Configuration Files (sensitive)
+config/database.yaml
+config/email.yaml
+config/models.yaml
+
+# Data Directories
+qdrant_data/
+data/
+temp/
+tmp/
+
+# Cache
+.cache/
+.pytest_cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+.dockerignore
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+
+# PDF Output
+pdf_output/
+output_text.txt
+
+# API Keys and Secrets
+*.key
+*.pem
+secrets/
+
+# Large Files
+*.zip
+*.tar.gz
+*.rar
+
+# Model Files
+models/
+*.bin
+*.safetensors
+
+# Vector Storage
+vector_storage/
+embeddings/
+
+# Neo4j Data
+neo4j_data/
+
+# PostgreSQL Data
+postgres_data/
