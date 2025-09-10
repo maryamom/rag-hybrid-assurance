@@ -1,0 +1,157 @@
+{
+	"info": {
+		"_postman_id": "8db86764-0342-4295-907a-0c488d3dc68f",
+		"name": "api_next",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/Interface Web de Saisie.json",
+		"_exporter_id": "12482651",
+		"_collection_link": "https://grey-crescent-206562.postman.co/workspace/API-RMC~ce102c69-b8cf-4754-916c-300d2f75c588/collection/12482651-8db86764-0342-4295-907a-0c488d3dc68f?action=share&source=collection_link&creator=12482651"
+	},
+	"item": [
+		{
+			"name": "Get_data",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "https://apidevis.onrender.com/api/auto/packs?n_cin=08478931&valeur_venale=60000&nature_contrat=r&nombre_place=5&valeur_a_neuf=60000&date_premiere_mise_en_circulation=2022-02-28&capital_bris_de_glace=900&capital_dommage_collision=60000&puissance=6&classe=3",
+					"protocol": "https",
+					"host": [
+						"apidevis",
+						"onrender",
+						"com"
+					],
+					"path": [
+						"api",
+						"auto",
+						"packs"
+					],
+					"query": [
+						{
+							"key": "n_cin",
+							"value": "08478931"
+						},
+						{
+							"key": "valeur_venale",
+							"value": "60000"
+						},
+						{
+							"key": "nature_contrat",
+							"value": "r"
+						},
+						{
+							"key": "nombre_place",
+							"value": "5"
+						},
+						{
+							"key": "valeur_a_neuf",
+							"value": "60000"
+						},
+						{
+							"key": "date_premiere_mise_en_circulation",
+							"value": "2022-02-28"
+						},
+						{
+							"key": "capital_bris_de_glace",
+							"value": "900"
+						},
+						{
+							"key": "capital_dommage_collision",
+							"value": "60000"
+						},
+						{
+							"key": "puissance",
+							"value": "6"
+						},
+						{
+							"key": "classe",
+							"value": "3"
+						}
+					]
+				}
+			},
+			"response": [
+				{
+					"name": "Get_data",
+					"originalRequest": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://apidevis.onrender.com/api/auto/packs?n_cin=08478931&valeur_venale=60000&nature_contrat=r&nombre_place=5&valeur_a_neuf=60000&date_premiere_mise_en_circulation=2022-02-28&capital_bris_de_glace=900&capital_dommage_collision=60000&puissance=6&classe=3",
+							"protocol": "https",
+							"host": [
+								"apidevis",
+								"onrender",
+								"com"
+							],
+							"path": [
+								"api",
+								"auto",
+								"packs"
+							],
+							"query": [
+								{
+									"key": "n_cin",
+									"value": "08478931"
+								},
+								{
+									"key": "valeur_venale",
+									"value": "60000"
+								},
+								{
+									"key": "nature_contrat",
+									"value": "r"
+								},
+								{
+									"key": "nombre_place",
+									"value": "5"
+								},
+								{
+									"key": "valeur_a_neuf",
+									"value": "60000"
+								},
+								{
+									"key": "date_premiere_mise_en_circulation",
+									"value": "2022-02-28"
+								},
+								{
+									"key": "capital_bris_de_glace",
+									"value": "900"
+								},
+								{
+									"key": "capital_dommage_collision",
+									"value": "60000"
+								},
+								{
+									"key": "puissance",
+									"value": "6"
+								},
+								{
+									"key": "classe",
+									"value": "3"
+								}
+							]
+						}
+					},
+					"_postman_previewlanguage": "",
+					"header": [],
+					"cookie": [],
+					"body": ""
+				}
+			]
+		}
+	]
+}
