@@ -2,7 +2,7 @@
 
 ##  Description
 
-Solution RAG (Retrieval-Augmented Generation) hybride intelligente pour les compagnies d'assurance, combinant recherche sémantique et relationnelle pour fournir des réponses précises et contextuelles aux clients.
+Solution RAG (Retrieval-Augmented Generation) hybride intelligente pour  BH assurance, combinant recherche sémantique et relationnelle pour fournir des réponses précises et contextuelles aux clients.
 
 ##  Architecture
 
@@ -32,7 +32,6 @@ User Query → LangChain Orchestrator → [Vector Search (Qdrant) + Graph Search
 - Accès aux contrats, devis, sinistres personnels
 
 ### ✅ Génération de Devis Automatique
-- Extraction automatique des paramètres depuis le texte libre
 - Intégration avec API externe de devis
 - Système de fallback pour la continuité du service
 
@@ -117,11 +116,6 @@ Système: [Génération automatique du devis via API externe]
 ```
 
 ## 🔒 Sécurité
-
-- **Authentification JWT** avec expiration
-- **Chiffrement TLS/SSL** pour les communications
-- **Validation stricte** des entrées utilisateur
-- **Rate limiting** pour prévenir les attaques
 - **Codes de vérification** à usage unique
 
 ## 📈 Performance
@@ -143,16 +137,4 @@ Système: [Génération automatique du devis via API externe]
 
 Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
 
-## 📞 Support
 
-Pour toute question ou support :
-- 📧 Email : support@rag-assurance.com
-- 🐛 Issues : [GitHub Issues](https://github.com/votre-username/rag-hybrid-assurance/issues)
-- 📖 Documentation : [Wiki du projet](https://github.com/votre-username/rag-hybrid-assurance/wiki)
-
-## 🙏 Remerciements
-
-- [LangChain](https://langchain.com/) pour l'orchestration
-- [Qdrant](https://qdrant.tech/) pour la recherche vectorielle
-- [Neo4j](https://neo4j.com/) pour la base de données graphe
-- [DeepSeek](https://deepseek.com/) pour le modèle de langage
