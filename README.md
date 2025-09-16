@@ -4,6 +4,8 @@
 
 Solution RAG (Retrieval-Augmented Generation) hybride intelligente pour  BH assurance, combinant recherche sémantique et relationnelle pour fournir des réponses précises et contextuelles aux clients.
 
+DEMO : https://www.linkedin.com/posts/mariem-omrani_insurtech-ai-hybridrag-activity-7371467482135441408-H8f2?utm_source=share&utm_medium=member_desktop&rcm=ACoAADSpmHsBFUZQjDEj9w-_YCn7HOT7JY188_w   
+
 ##  Architecture
 
 ### Technologies Principales
