@@ -11,7 +11,7 @@ from simple_pdf_processor import SimplePDFProcessor
 async def main():
     # Initialize processor with your OpenRouter API key
     processor = SimplePDFProcessor(
-        openrouter_api_key="REMOVED_OPENROUTER_KEY",
+        openrouter_api_key=os.environ["OPENROUTER_API_KEY"],
         output_dir="./pdf_output"
     )
     

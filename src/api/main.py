@@ -13,7 +13,7 @@ import logging
 from datetime import datetime
 import json
 
-from hybrid_rag_langchain_orchestrator import HybridRAGLangChainOrchestrator
+from src.core.orchestrator import HybridRAGLangChainOrchestrator
 
 # Configuration du logging
 logging.basicConfig(level=logging.INFO)
@@ -1276,7 +1276,7 @@ async def generate_quotation(request: QuotationRequest):
         vehicle_info = request.dict()
         
         # Valider les informations
-        from hybrid_rag_langchain_orchestrator import QuotationGenerator
+        from src.core.orchestrator import QuotationGenerator
         quotation_generator = QuotationGenerator({})
         validation = quotation_generator._validate_vehicle_info(vehicle_info)
         

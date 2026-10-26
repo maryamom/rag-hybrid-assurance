@@ -54,18 +54,18 @@ User Query → LangChain Orchestrator → [Vector Search (Qdrant) + Graph Search
 ### Installation Rapide
 ```bash
 # Cloner le repository
-git clone https://github.com/votre-username/rag-hybrid-assurance.git
+git clone https://github.com/maryamom/rag-hybrid-assurance.git
 cd rag-hybrid-assurance
 
-# Installer les dépendances
+# Configurer les secrets (puis remplir .env)
+cp .env.example .env
+
+# Lancer PostgreSQL, Neo4j, Qdrant et Redis
+docker compose up -d postgres neo4j qdrant redis
+
+# Installer les dépendances et lancer l'API
 pip install -r requirements.txt
-
-# Configurer les bases de données
-cp config/database.yaml.example config/database.yaml
-# Éditer les configurations
-
-# Lancer l'application
-python src/api/main.py
+python -m uvicorn src.api.main:app --port 8005
 ```
 
 ## 🔧 Configuration

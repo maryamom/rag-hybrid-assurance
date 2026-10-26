@@ -8,6 +8,8 @@ Orchestrateur RAG Hybride avec LangChain
 """
 
 import os
+
+from src.config import CONFIG
 import json
 import logging
 import asyncio
@@ -1152,36 +1154,9 @@ class HybridRAGLangChainOrchestrator:
         self.auth_system = None
         self.pending_auth = {}  # {user_id: {step, data}}
         
-        # Configuration
-        self.config = {
-            'qdrant': {
-                'host': 'localhost',
-                'port': 6333,
-                'collection_name': 'insurance_embeddings'
-            },
-            'neo4j': {
-                'uri': 'bolt://localhost:7687',
-                'auth': ('neo4j', 'password')
-            },
-            'postgres': {
-                'host': 'localhost',
-                'port': 5432,
-                'database': 'data',
-                'user': 'postgres',
-                'password': 'REMOVED_PASSWORD'
-            },
-        'openrouter': {
-            'api_key': 'REMOVED_OPENROUTER_KEY',
-            'model': 'deepseek/deepseek-chat-v3.1:free',
-            'base_url': 'https://openrouter.ai/api/v1',
-            'http_referer': 'https://localhost:8002'
-        },
-            'quotation_api': {
-                'base_url': 'https://apidevis.onrender.com',  # URL de votre API
-                'endpoint': '/api/auto/packs'  # Endpoint de votre collection Postman
-            }
-        }
-        
+        # Configuration (read from environment variables, see .env.example)
+        self.config = CONFIG
+
     async def initialize(self):
         """Initialise toutes les connexions et composants LangChain"""
         try:

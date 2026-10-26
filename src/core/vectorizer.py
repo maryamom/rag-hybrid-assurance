@@ -7,6 +7,8 @@ pour permettre la recherche rapide et flexible via similarité vectorielle.
 """
 
 import os
+
+from src.config import CONFIG
 import json
 import logging
 from typing import List, Dict, Any, Optional, Tuple
@@ -944,14 +946,8 @@ class VectorEmbeddingsSystem:
 def main():
     """Fonction principale pour construire le système d'embeddings"""
     
-    # Configuration de la base de données
-    db_config = {
-        'host': 'localhost',
-        'port': '5432',
-        'database': 'data',
-        'user': 'postgres',
-        'password': 'REMOVED_PASSWORD'
-    }
+    # Configuration de la base de données (variables d'environnement, voir .env.example)
+    db_config = CONFIG["postgres"]
     
     # Créer le système d'embeddings (Open Source)
     vector_system = VectorEmbeddingsSystem(

@@ -4,14 +4,15 @@ Example usage of the Simple PDF Processor
 """
 
 import asyncio
+import os
 from simple_pdf_processor import SimplePDFProcessor
 
 async def main():
     # Initialize processor with your OpenRouter API key and database
     processor = SimplePDFProcessor(
-        openrouter_api_key="REMOVED_OPENROUTER_KEY",
+        openrouter_api_key=os.environ["OPENROUTER_API_KEY"],
         output_dir="./pdf_output",
-        database_url="postgresql://postgres:password@localhost:5432/pdf_processor"  # Update with your DB credentials
+        database_url=os.environ["DATABASE_URL"]
     )
     
     # List of PDF files to process
