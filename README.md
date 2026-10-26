@@ -1,4 +1,4 @@
-#  RAG Hybride pour l'Assurance
+#  Hackthon BH Assurance : RAG Hybride pour l'Assurance
 
 ##  Description
 
