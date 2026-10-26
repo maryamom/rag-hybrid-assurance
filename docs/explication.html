@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>BHbot – RAG hybride pour l'assurance</title>
+<style>
+  @page { size: A4; margin: 0; }
+  body { font-family: "Inter", "DejaVu Sans", sans-serif; color: #1f2937; font-size: 10.5pt; line-height: 1.5; margin: 0; }
+  .page { padding: 0 6mm; }
+  h1 { font-size: 21pt; margin: 0 0 4pt 0; color: #1e3a5f; letter-spacing: -0.3pt; }
+  .subtitle { color: #4b5563; font-size: 10.5pt; margin-bottom: 2pt; }
+  .meta { color: #6b7280; font-size: 9pt; margin-bottom: 14pt; }
+  h2 { font-size: 14pt; color: #1e3a5f; border-bottom: 2px solid #2b7bbf; padding-bottom: 3pt; margin: 14pt 0 7pt 0; page-break-after: avoid; }
+  h3 { font-size: 11.5pt; color: #1e3a5f; margin: 12pt 0 4pt 0; page-break-after: avoid; }
+  p { margin: 0 0 6pt 0; }
+  ul { margin: 0 0 6pt 0; padding-left: 16pt; }
+  li { margin-bottom: 2pt; }
+  strong { color: #111827; }
+  code { font-family: "DejaVu Sans Mono", monospace; font-size: 8.8pt; background: #eef2f7; padding: 0 2pt; border-radius: 2pt; }
+  .lead { background: #f3f7fb; border-left: 4px solid #2b7bbf; padding: 7pt 10pt; margin: 0 0 10pt 0; }
+  .card { background: #f8fafc; border-left: 4px solid #2b7bbf; padding: 6pt 10pt; margin: 0 0 7pt 0; page-break-inside: avoid; }
+  .card .title { font-weight: 600; color: #1e3a5f; margin-bottom: 2pt; }
+  .warn { border-left-color: #c0392b; }
+  table { border-collapse: collapse; width: 100%; margin: 4pt 0 8pt 0; font-size: 9.5pt; page-break-inside: avoid; }
+  th { background: #1e3a5f; color: #fff; text-align: left; padding: 4pt 6pt; font-weight: 600; }
+  td { border-bottom: 1px solid #d9e1ea; padding: 4pt 6pt; vertical-align: top; }
+  .figure { margin: 4pt 0 10pt 0; page-break-inside: avoid; text-align: center; }
+  .caption { color: #6b7280; font-size: 8.5pt; text-align: center; margin-top: 2pt; }
+  .formula { text-align: center; font-family: "DejaVu Serif", serif; font-size: 11pt; margin: 4pt 0 6pt 0; }
+  .two { width: 100%; }
+  .two td { border: none; padding: 0 6pt 0 0; width: 50%; }
+  .break { page-break-before: always; }
+</style>
+</head>
+<body>
+<div class="page">
+
+<h1>BHbot – RAG hybride pour l'assurance</h1>
+<div class="subtitle">Assistant client combinant recherche sémantique (Qdrant), graphe de connaissances (Neo4j) et LLM</div>
+<div class="meta">Mariem Omrani · Hackathon BH Assurance, septembre 2025 · Version révisée, octobre 2026 · github.com/maryamom/rag-hybrid-assurance</div>
+
+<div class="lead">
+La solution répond aux questions des clients à partir de documents d'assurance scannés (français et arabe) et du catalogue de produits,
+donne à un client authentifié l'accès à ses propres contrats et devis, et calcule des devis d'assurance auto.
+Les données publiques et les données des clients sont strictement séparées : la recherche n'a jamais accès aux secondes.
+</div>
+
+<h2>1. Vision de la solution</h2>
+<h3>1.1 Le besoin</h3>
+<p>Un assureur veut un assistant, intégré à son site vitrine, capable de :</p>
+<ul>
+  <li><strong>comprendre</strong> des questions en langage naturel sur les garanties, les produits et les démarches ;</li>
+  <li><strong>donner accès</strong> à ses contrats et devis à un client, après vérification de son identité ;</li>
+  <li><strong>calculer</strong> un devis auto personnalisé en temps réel.</li>
+</ul>
+
+<h3>1.2 Quatre composantes</h3>
+<table>
+  <tr><th style="width:28%">Composante</th><th>Rôle</th></tr>
+  <tr><td><strong>Recherche sémantique</strong> (Qdrant)</td><td>Retrouve les passages de documents dont le sens est proche de la question, grâce à des embeddings multilingues.</td></tr>
+  <tr><td><strong>Recherche relationnelle</strong> (Neo4j)</td><td>Interroge un graphe produits – garanties – branches – profils clients, pour les questions de relations et de comparaison.</td></tr>
+  <tr><td><strong>Génération</strong> (LLM via OpenRouter)</td><td>Rédige la réponse à partir des seuls extraits retrouvés, en citant ses sources. DeepSeek v3.1 par défaut, modèle configurable.</td></tr>
+  <tr><td><strong>Orchestration</strong> (FastAPI, LangChain)</td><td>Oriente chaque question vers le bon traitement, lance les deux recherches en parallèle, fusionne leurs résultats.</td></tr>
+</table>
+
+<h2>2. Architecture</h2>
+<h3>2.1 Préparation des données (hors ligne)</h3>
+<div class="figure">
+<svg width="100%" viewBox="0 0 680 186" xmlns="http://www.w3.org/2000/svg" font-family="Inter, DejaVu Sans, sans-serif" font-size="10.5">
+  <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#5b6b7f"/></marker></defs>
+  <g fill="#f3f7fb" stroke="#2b7bbf" stroke-width="1.2">
+    <rect x="2" y="14" width="116" height="44" rx="6"/><rect x="143" y="14" width="116" height="44" rx="6"/>
+    <rect x="284" y="14" width="116" height="44" rx="6"/><rect x="425" y="14" width="116" height="44" rx="6"/>
+    <rect x="566" y="14" width="112" height="44" rx="6"/>
+    <rect x="2" y="122" width="116" height="44" rx="6"/><rect x="143" y="122" width="116" height="44" rx="6"/>
+    <rect x="425" y="98" width="116" height="40" rx="6"/><rect x="425" y="144" width="116" height="40" rx="6"/>
+  </g>
+  <g fill="#1f2937" text-anchor="middle">
+    <text x="60" y="33" font-weight="600">PDF scannés</text><text x="60" y="48">français / arabe</text>
+    <text x="201" y="33" font-weight="600">OCR (vision)</text><text x="201" y="48">GPT-4o-mini</text>
+    <text x="342" y="33" font-weight="600">PostgreSQL</text><text x="342" y="48">pages_content</text>
+    <text x="483" y="33" font-weight="600">Nettoyage</text><text x="483" y="48">cleaned_docs</text>
+    <text x="622" y="33" font-weight="600">Qdrant</text><text x="622" y="48">index public</text>
+    <text x="60" y="141" font-weight="600">Fichiers Excel</text><text x="60" y="156">du hackathon</text>
+    <text x="201" y="141" font-weight="600">PostgreSQL</text><text x="201" y="156">1 table par feuille</text>
+    <text x="483" y="115" font-weight="600">Neo4j</text><text x="483" y="129">catalogue public</text>
+    <text x="483" y="161" font-weight="600">Vues clients</text><text x="483" y="175">privées</text>
+  </g>
+  <g stroke="#5b6b7f" stroke-width="1.2" fill="none">
+    <path d="M118 36H141" marker-end="url(#a)"/><path d="M259 36H282" marker-end="url(#a)"/>
+    <path d="M400 36H423" marker-end="url(#a)"/><path d="M541 36H564" marker-end="url(#a)"/>
+    <path d="M118 144H141" marker-end="url(#a)"/>
+    <path d="M259 144H300V118H423" marker-end="url(#a)"/><path d="M300 144V164H423" marker-end="url(#a)"/>
+    <path d="M300 118V80H622V60" marker-end="url(#a)"/>
+  </g>
+  <text x="560" y="76" fill="#5b6b7f" font-size="9" text-anchor="end">garanties, produits, FAQ</text>
+</svg>
+<div class="caption">Les documents et les tables publiques alimentent Qdrant et Neo4j ; les données clients restent dans PostgreSQL.</div>
+</div>
+
+<div style="page-break-inside: avoid"><h3>2.2 Traitement d'une question (en ligne)</h3>
+<div class="figure">
+<svg width="100%" viewBox="0 0 680 214" xmlns="http://www.w3.org/2000/svg" font-family="Inter, DejaVu Sans, sans-serif" font-size="10.5">
+  <defs><marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#5b6b7f"/></marker></defs>
+  <g fill="#f3f7fb" stroke="#2b7bbf" stroke-width="1.2">
+    <rect x="2" y="86" width="84" height="40" rx="6"/>
+    <rect x="106" y="78" width="96" height="56" rx="6"/>
+    <rect x="226" y="6" width="200" height="44" rx="6"/><rect x="226" y="62" width="200" height="44" rx="6"/>
+    <rect x="226" y="150" width="200" height="58" rx="6"/>
+    <rect x="452" y="6" width="226" height="44" rx="6"/><rect x="452" y="62" width="226" height="44" rx="6"/>
+    <rect x="452" y="122" width="96" height="40" rx="6"/><rect x="452" y="168" width="96" height="40" rx="6"/>
+    <rect x="574" y="136" width="104" height="58" rx="6"/>
+  </g>
+  <g fill="#1f2937" text-anchor="middle">
+    <text x="44" y="110" font-weight="600">Question</text>
+    <text x="154" y="102" font-weight="600">Routage</text><text x="154" y="117">par règles</text>
+    <text x="326" y="25" font-weight="600">« mes contrats »</text><text x="326" y="40">identité + code par e-mail</text>
+    <text x="326" y="81" font-weight="600">Demande de devis</text><text x="326" y="96">extraction + validation</text>
+    <text x="326" y="170" font-weight="600">Question générale</text><text x="326" y="185">reformulée avec</text><text x="326" y="198">l'historique de la session</text>
+    <text x="565" y="25" font-weight="600">PostgreSQL</text><text x="565" y="40">données du client seulement</text>
+    <text x="565" y="81" font-weight="600">API de devis</text><text x="565" y="96">apidevis</text>
+    <text x="500" y="140" font-weight="600">Qdrant</text><text x="500" y="154">passages</text>
+    <text x="500" y="186" font-weight="600">Neo4j</text><text x="500" y="200">catalogue</text>
+    <text x="626" y="158" font-weight="600">Fusion RRF</text><text x="626" y="172">puis LLM</text><text x="626" y="185">avec citations</text>
+  </g>
+  <g stroke="#5b6b7f" stroke-width="1.2" fill="none">
+    <path d="M86 106H104" marker-end="url(#b)"/>
+    <path d="M202 92H212V28H224" marker-end="url(#b)"/><path d="M202 100H214V84H224" marker-end="url(#b)"/>
+    <path d="M202 120H212V178H224" marker-end="url(#b)"/>
+    <path d="M426 28H450" marker-end="url(#b)"/><path d="M426 84H450" marker-end="url(#b)"/>
+    <path d="M426 172H438V142H450" marker-end="url(#b)"/><path d="M426 186H438V188H450" marker-end="url(#b)"/>
+    <path d="M548 142H560V158H572" marker-end="url(#b)"/><path d="M548 188H560V172H572" marker-end="url(#b)"/>
+  </g>
+</svg>
+<div class="caption">Le routage a lieu avant tout appel au LLM ; Qdrant et Neo4j sont interrogés en parallèle.</div>
+</div></div>
+
+<h2>3. Étapes techniques</h2>
+<h3>3.1 Préparation des données</h3>
+
+<div class="card"><div class="title">OCR par modèle de vision</div>
+La majorité des documents sont des PDF scannés, en français et en arabe, souvent de qualité médiocre : un OCR classique donnait un texte inexploitable.
+Chaque page est donc rendue en image haute résolution (PyMuPDF, zoom ×2) puis transcrite fidèlement, dans sa langue d'origine, par un modèle de vision appelé via OpenRouter
+(<code>OCR_MODEL</code>, GPT-4o-mini par défaut). Le texte de chaque page est stocké dans PostgreSQL (<code>documents</code>, <code>pages_content</code>).</div>
+
+<div class="card"><div class="title">Nettoyage</div>
+Les pages d'un document sont réunies, les en-têtes, pieds de page et numéros de page répétés sont supprimés, les espaces sont normalisés.
+La branche d'assurance est déduite du dossier du PDF. Le résultat (<code>cleaned_docs</code>) peut être exporté en JSONL pour reconstruire les index sans refaire l'OCR.</div>
+
+<div class="card"><div class="title">Index vectoriel (Qdrant)</div>
+Les documents sont découpés en extraits d'environ 1 000 caractères (avec chevauchement), vectorisés par un modèle multilingue
+(<code>paraphrase-multilingual-MiniLM-L12-v2</code>) et indexés avec leur type. Seules les données publiques sont indexées : documents,
+descriptions de garanties, correspondance produits – profils, questions-réponses et dictionnaire des colonnes.</div>
+
+<div class="card"><div class="title">Graphe de connaissances (Neo4j)</div>
+Le graphe relie <strong>Branche</strong> → <strong>SousBranche</strong> → <strong>Produit</strong> → <strong>Garantie</strong>, ainsi que les
+<strong>ProfilCible</strong> de chaque produit et les <strong>QuestionReponse</strong> d'exemple. Il est construit à partir des seuls noms distincts de produits,
+branches et garanties : aucune personne, aucun numéro de contrat et aucun montant n'y figure. Chaque nœud porte une description
+textuelle, couverte par un index plein texte avec analyseur français.</div>
+
+<div style="page-break-inside: avoid"><h3>3.2 Moteur de recherche hybride</h3>
+<table class="two"><tr>
+<td><div class="card"><div class="title">Recherche sémantique</div>
+Embedding de la question, puis une recherche de similarité cosinus dans Qdrant, filtrée sur les types publics. Les résultats sont triés par score.</div></td>
+<td><div class="card"><div class="title">Recherche relationnelle</div>
+Une requête sur l'index plein texte de Neo4j, limitée aux étiquettes publiques, avec les nœuds voisins (par exemple les produits qui incluent une garantie).</div></td>
+</tr></table></div>
+<p>Les deux recherches sont lancées <strong>en parallèle</strong>, avec un délai maximal chacune : si une base est indisponible, l'autre répond quand même.
+Leurs scores n'étant pas comparables (cosinus et Lucene), les classements sont fusionnés par <strong>Reciprocal Rank Fusion</strong> :</p>
+<div class="formula">score(d) = Σ<sub>sources</sub> 1 / (60 + rang<sub>source</sub>(d))</div>
+<p>Un passage bien classé par les deux sources arrive en tête ; les doublons sont fusionnés.</p>
+
+<h3>3.3 Génération de la réponse</h3>
+<ul>
+  <li>Si la conversation a un historique, la question est d'abord <strong>reformulée</strong> pour être compréhensible seule (« et la franchise ? »).</li>
+  <li>Le LLM reçoit les extraits numérotés et répond <strong>uniquement</strong> à partir d'eux, en citant ses sources [1], [2] ; il dit clairement quand l'information n'y figure pas.</li>
+  <li>Température 0,1, montants en dinars tunisiens, réponse dans la langue de la question.</li>
+  <li>Sans clé d'API, l'assistant affiche les passages les plus pertinents au lieu de générer une réponse.</li>
+</ul>
+
+<h3>3.4 Accès sécurisé aux données personnelles</h3>
+<table>
+  <tr><th style="width:5%">#</th><th>Étape</th></tr>
+  <tr><td>1</td><td>Détection de la demande (« mes contrats », « ma prime »…) par des règles, avant tout appel au LLM.</td></tr>
+  <tr><td>2</td><td>Le client donne prénom, nom et téléphone ; la réponse est la même que le client existe ou non, et l'adresse e-mail n'est jamais affichée.</td></tr>
+  <tr><td>3</td><td>Un code à 6 chiffres (générateur cryptographique) est envoyé à l'adresse enregistrée. Il est stocké haché, lié à la session du navigateur, valable 10 minutes, bloqué après 3 essais.</td></tr>
+  <tr><td>4</td><td>Une fois le code validé, les contrats et devis sont lus dans PostgreSQL, filtrés sur l'identifiant du client ; un jeton d'une heure permet les questions de suivi.</td></tr>
+  <tr><td>5</td><td>Les journaux ne contiennent ni question, ni identité, ni CIN ; les données du client ne sont pas réutilisées dans les prompts suivants.</td></tr>
+</table>
+
+<h3>3.5 Devis auto</h3>
+<ul>
+  <li>Les informations du véhicule sont extraites du message par le LLM (JSON), avec des expressions régulières en secours, puis <strong>validées par Pydantic</strong> (CIN à 8 chiffres, date passée, valeurs plausibles).</li>
+  <li>Aucune valeur n'est inventée : l'assistant demande les informations manquantes et les complète au fil de la conversation.</li>
+  <li>Le devis est calculé par l'API de tarification du hackathon ; le CIN est masqué dans l'historique.</li>
+</ul>
+
+<h2>4. Qualité</h2>
+<ul>
+  <li><strong>75 tests automatisés</strong> : routage, extraction, authentification, fusion, sessions, API HTTP, et tests d'intégration sur de vraies bases PostgreSQL et Neo4j, exécutés par GitHub Actions à chaque push.</li>
+  <li><strong>Évaluation</strong> : <code>eval/evaluate.py</code> compare recherche vectorielle seule, graphe seul et hybride (taux de réussite @5, MRR, latence médiane et p95) sur des questions rédigées à partir des documents.</li>
+</ul>
+
+<h2>5. Limites et pistes</h2>
+<ul>
+  <li>Sessions et codes sont conservés en mémoire : il faudrait Redis pour plusieurs processus.</li>
+  <li>Les tentatives sont limitées par session ; un déploiement public demanderait aussi une limite par adresse IP.</li>
+  <li>Le routage par règles est fiable sur les questions du hackathon, mais un classifieur généraliserait mieux.</li>
+  <li>Les devis dépendent d'une API externe fournie pour le hackathon.</li>
+</ul>
+
+<h2>6. Du hackathon à la version actuelle</h2>
+<p>La version du hackathon (étiquette Git <code>hackathon-2025-09</code>) a été auditée en octobre 2026. Cet audit a conduit à séparer strictement données publiques et données clients dans la recherche, à isoler chaque session, à renforcer le code de vérification, à remplacer la concaténation des résultats par une fusion RRF en parallèle, à passer à des embeddings multilingues, à ajouter les scripts d'ingestion manquants, à découper le code en modules et à ajouter les tests.</p>
+
+</div>
+</body>
+</html>

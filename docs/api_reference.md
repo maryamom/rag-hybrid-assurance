@@ -1,128 +1,65 @@
-# 📚 Référence API
+# API reference
 
-## Endpoints Principaux
+Base URL: `http://localhost:8005`. Interactive documentation: `/docs`.
 
-### 1. Chat en Temps Réel
-**WebSocket** : `ws://localhost:8005/ws`
+Every response sets a `bhbot_session` cookie (HttpOnly) on the first request. Conversation history and
+authentication are tied to it: send it back (browsers do so automatically).
 
-```javascript
-const ws = new WebSocket('ws://localhost:8005/ws');
+## `POST /api/query`
 
-ws.onopen = function() {
-    ws.send(JSON.stringify({
-        type: 'message',
-        content: 'Bonjour, je veux voir mes contrats'
-    }));
-};
-
-ws.onmessage = function(event) {
-    const data = JSON.parse(event.data);
-    console.log('Réponse:', data.response);
-};
+```json
+{ "query": "Que couvre la garantie bris de glace ?" }
 ```
 
-### 2. Génération de Devis
-**POST** : `/api/quotation`
+Response:
 
 ```json
 {
-    "query": "Je veux un devis pour une Peugeot 308, 5 ans d'expérience",
-    "user_id": "optional_user_id"
+  "response": "La garantie bris de glace couvre le pare-brise et les vitres latérales [1].",
+  "intent": "general",
+  "sources": [{ "title": "Bris de glace", "kind": "garantie", "score": 0.0325 }],
+  "quotation": null,
+  "needs_auth": false,
+  "auth_step": null,
+  "vector_results_count": 3,
+  "graph_results_count": 2,
+  "processing_time": 1.84,
+  "timestamp": "2026-10-26T21:30:54.697754+00:00"
 }
 ```
 
-**Réponse** :
+`intent` is `general`, `quotation`, `personal_data` or `authentication`. During authentication,
+`needs_auth` is `true` and `auth_step` is `identity` or `code`.
+
+## `POST /api/quotation`
+
+Quote from the form, all fields validated:
+
 ```json
 {
-    "success": true,
-    "quotation": {
-        "prime_annuelle": 450.00,
-        "prime_mensuelle": 37.50,
-        "garanties": [...],
-        "options": [...]
-    }
+  "n_cin": "12345678",
+  "valeur_venale": 45000,
+  "valeur_a_neuf": 52000,
+  "date_premiere_mise_en_circulation": "2019-01-01",
+  "puissance": 6,
+  "nombre_place": 5,
+  "classe": 3,
+  "nature_contrat": "r",
+  "capital_bris_de_glace": 900,
+  "capital_dommage_collision": 60000
 }
 ```
 
-### 3. Authentification
-**POST** : `/api/auth/verify`
+`200` → `{ "error": false, "quotation": { ... } }` · `422` invalid fields · `502` quote API unavailable.
+
+## `POST /api/session/reset`
+
+Forgets this browser's conversation and signs the client out.
+
+## `GET /api/health`
 
 ```json
-{
-    "email": "client@example.com",
-    "code": "123456"
-}
+{ "status": "healthy", "services": { "qdrant": true, "neo4j": true, "postgres": true, "llm": true } }
 ```
 
-**Réponse** :
-```json
-{
-    "success": true,
-    "token": "jwt_token_here",
-    "expires_in": 3600
-}
-```
-
-### 4. Données Personnelles
-**GET** : `/api/personal-data`
-
-**Headers** :
-```
-Authorization: Bearer jwt_token_here
-```
-
-**Réponse** :
-```json
-{
-    "success": true,
-    "data": {
-        "contrats": [...],
-        "devis": [...],
-        "sinistres": [...]
-    }
-}
-```
-
-## Codes de Statut
-
-| Code | Description |
-|------|-------------|
-| 200 | Succès |
-| 400 | Requête invalide |
-| 401 | Non authentifié |
-| 403 | Accès refusé |
-| 404 | Ressource non trouvée |
-| 500 | Erreur serveur |
-
-## Gestion d'Erreurs
-
-### Format d'Erreur
-```json
-{
-    "error": true,
-    "message": "Description de l'erreur",
-    "code": "ERROR_CODE",
-    "details": {...}
-}
-```
-
-### Codes d'Erreur
-- `AUTH_REQUIRED` : Authentification nécessaire
-- `INVALID_CREDENTIALS` : Identifiants invalides
-- `CODE_EXPIRED` : Code de vérification expiré
-- `QUOTATION_FAILED` : Échec génération devis
-- `DATABASE_ERROR` : Erreur base de données
-
-## Rate Limiting
-
-- **Chat** : 60 requêtes/minute
-- **Devis** : 10 requêtes/minute
-- **Auth** : 5 tentatives/minute
-
-## Webhooks
-
-### Événements Disponibles
-- `quotation.generated` : Devis généré
-- `auth.success` : Authentification réussie
-- `auth.failed` : Échec authentification
-- `error.occurred` : Erreur système
+`status` is `healthy` (all up), `degraded` (at least one search source up) or `down`.
