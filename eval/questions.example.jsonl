@@ -1,0 +1,5 @@
+{"question": "Que couvre la garantie bris de glace ?", "expected": ["pare-brise", "vitre", "glace"]}
+{"question": "Quels produits incluent la garantie vol ?", "expected": ["vol"]}
+{"question": "Quelle assurance pour un jeune conducteur ?", "expected": ["jeune conducteur"]}
+{"question": "Dans quel délai déclarer un sinistre ?", "expected": ["jours", "délai"]}
+{"question": "La garantie incendie couvre-t-elle les dégâts des eaux ?", "expected": ["dégâts des eaux", "degats des eaux"]}

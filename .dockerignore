@@ -1,0 +1,10 @@
+.git
+.env
+.env.*
+!.env.example
+data/
+tests/
+eval/
+docs/
+**/__pycache__
+*.pdf

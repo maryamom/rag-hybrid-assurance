@@ -1,325 +1,224 @@
-#!/usr/bin/env python3
+"""Client authentication for personal-data questions: identity, then a code sent by e-mail.
+
+Security choices:
+- codes come from `secrets` (cryptographic), are stored hashed, and compared in constant time;
+- a code is bound to the browser session that asked for it, expires after 10 minutes,
+  and is locked after 3 wrong attempts;
+- the answer is the same whether or not the client exists, and never shows the e-mail
+  address, so the chat can't be used to discover who is a client;
+- nothing personal is written to the logs.
 """
-Système d'authentification client pour accès aux données personnelles
-"""
+from __future__ import annotations
 
 import asyncio
-import smtplib
-import random
-import string
 import hashlib
-import time
-from datetime import datetime, timedelta
-from typing import Dict, Optional, List, Any
-import psycopg2
-from psycopg2.extras import RealDictCursor
+import hmac
 import logging
+import secrets
+import smtplib
+import time
+from dataclasses import dataclass, field
+from email.message import EmailMessage
+from typing import Any, Optional, Protocol
 
-# Configuration du logging
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-class ClientAuthSystem:
-    """Système d'authentification client"""
-    
-    def __init__(self, db_config: Dict[str, str], smtp_config: Dict[str, str]):
-        self.db_config = db_config
-        self.smtp_config = smtp_config
-        self.active_codes = {}  # {email: {code, timestamp, client_id}}
-        self.session_tokens = {}  # {token: {client_id, timestamp}}
-        
-    def generate_verification_code(self) -> str:
-        """Génère un code de vérification à 6 chiffres"""
-        return ''.join(random.choices(string.digits, k=6))
-    
-    def generate_session_token(self) -> str:
-        """Génère un token de session"""
-        return hashlib.sha256(f"{time.time()}{random.random()}".encode()).hexdigest()[:32]
-    
-    async def find_client_by_identity(self, nom: str, prenom: str, telephone: str) -> Optional[Dict[str, Any]]:
-        """Recherche un client par nom, prénom et téléphone"""
-        try:
-            conn = psycopg2.connect(**self.db_config)
-            cursor = conn.cursor(cursor_factory=RealDictCursor)
-            
-            # Recherche dans la table clients
-            query = """
-            SELECT * FROM "Data_donnees_assurance_s1_clients" 
-            WHERE LOWER(nom) = LOWER(%s) 
-            AND LOWER(prenom) = LOWER(%s) 
-            AND telephone = %s
-            """
-            
-            cursor.execute(query, (nom, prenom, telephone))
-            client = cursor.fetchone()
-            
-            if client:
-                logger.info(f"✅ Client trouvé: {nom} {prenom}")
-                return dict(client)
-            else:
-                logger.warning(f"❌ Client non trouvé: {nom} {prenom} - {telephone}")
-                return None
-                
-        except Exception as e:
-            logger.error(f"❌ Erreur recherche client: {e}")
+CODE_TTL_SECONDS = 600
+TOKEN_TTL_SECONDS = 3600
+MAX_CODE_ATTEMPTS = 3
+MAX_IDENTITY_ATTEMPTS = 5
+
+
+class ClientRepository(Protocol):
+    async def find_client(self, nom: str, prenom: str, telephone: str) -> Optional[dict[str, Any]]: ...
+    async def client_records(self, client_id: Any) -> dict[str, Any]: ...
+
+
+class CodeSender(Protocol):
+    async def send_code(self, email: str, code: str, prenom: str) -> None: ...
+
+
+@dataclass
+class _Challenge:
+    code_hash: str
+    salt: str
+    client_id: Optional[Any]  # None when the identity matched no client
+    expires_at: float
+    attempts: int = 0
+
+
+@dataclass
+class _ClientSession:
+    client_id: Any
+    expires_at: float
+
+
+@dataclass
+class VerifyResult:
+    ok: bool
+    token: Optional[str] = None
+    attempts_left: int = 0
+    expired: bool = False
+
+
+@dataclass
+class ClientAuthService:
+    repository: ClientRepository
+    sender: CodeSender
+    _challenges: dict[str, _Challenge] = field(default_factory=dict)
+    _identity_attempts: dict[str, list[float]] = field(default_factory=dict)
+    _tokens: dict[str, _ClientSession] = field(default_factory=dict)
+
+    @staticmethod
+    def _hash(code: str, salt: str) -> str:
+        return hashlib.sha256(f"{salt}:{code}".encode()).hexdigest()
+
+    def identity_attempts_exceeded(self, session_id: str) -> bool:
+        window_start = time.monotonic() - 900
+        recent = [t for t in self._identity_attempts.get(session_id, []) if t > window_start]
+        self._identity_attempts[session_id] = recent
+        return len(recent) >= MAX_IDENTITY_ATTEMPTS
+
+    async def start(self, session_id: str, nom: str, prenom: str, telephone: str) -> None:
+        """Look the client up and, if found, e-mail a code. Behaves the same either way."""
+        self._identity_attempts.setdefault(session_id, []).append(time.monotonic())
+        client = await self.repository.find_client(nom, prenom, telephone)
+        code = f"{secrets.randbelow(10**6):06d}"
+        salt = secrets.token_hex(8)
+        self._challenges[session_id] = _Challenge(
+            code_hash=self._hash(code, salt),
+            salt=salt,
+            client_id=client["id"] if client else None,
+            expires_at=time.monotonic() + CODE_TTL_SECONDS,
+        )
+        if client and client.get("email"):
+            try:
+                await self.sender.send_code(client["email"], code, client.get("prenom") or prenom)
+            except Exception as error:  # noqa: BLE001 - must not reveal that the client exists
+                logger.error("Could not send the verification code: %s", type(error).__name__)
+
+    def verify(self, session_id: str, code: str) -> VerifyResult:
+        challenge = self._challenges.get(session_id)
+        if challenge is None:
+            return VerifyResult(ok=False, attempts_left=0)
+        if time.monotonic() > challenge.expires_at:
+            del self._challenges[session_id]
+            return VerifyResult(ok=False, expired=True)
+        challenge.attempts += 1
+        matches = hmac.compare_digest(challenge.code_hash, self._hash(code, challenge.salt))
+        if matches and challenge.client_id is not None:
+            del self._challenges[session_id]
+            token = secrets.token_urlsafe(32)
+            self._tokens[token] = _ClientSession(challenge.client_id, time.monotonic() + TOKEN_TTL_SECONDS)
+            return VerifyResult(ok=True, token=token)
+        attempts_left = MAX_CODE_ATTEMPTS - challenge.attempts
+        if attempts_left <= 0:
+            del self._challenges[session_id]
+        return VerifyResult(ok=False, attempts_left=max(attempts_left, 0))
+
+    def client_id_for(self, token: Optional[str]) -> Optional[Any]:
+        if not token:
             return None
-        finally:
-            if 'cursor' in locals():
-                cursor.close()
-            if 'conn' in locals():
-                conn.close()
-    
-    async def send_verification_email(self, email: str, code: str, nom: str, prenom: str) -> bool:
-        """Envoie un email de vérification"""
-        try:
-            subject = "Code de vérification - BHbot Assurance"
-            body = f"""
-            Bonjour {prenom} {nom},
-            
-            Voici votre code de vérification pour accéder à vos informations d'assurance :
-            
-            🔐 Code de vérification : {code}
-            
-            Ce code est valide pendant 10 minutes.
-            
-            Si vous n'avez pas demandé cette vérification, ignorez cet email.
-            
-            Cordialement,
-            L'équipe BHbot Assurance
+        session = self._tokens.get(token)
+        if session is None or time.monotonic() > session.expires_at:
+            self._tokens.pop(token, None)
+            return None
+        return session.client_id
+
+    async def client_records(self, token: Optional[str]) -> Optional[dict[str, Any]]:
+        client_id = self.client_id_for(token)
+        if client_id is None:
+            return None
+        return await self.repository.client_records(client_id)
+
+    def logout(self, token: Optional[str]) -> None:
+        if token:
+            self._tokens.pop(token, None)
+
+    def forget_session(self, session_id: str) -> None:
+        """Drop the pending code. Identity attempts are kept: they expire on their own after 15 min."""
+        self._challenges.pop(session_id, None)
+
+
+class PostgresClientRepository:
+    """Reads clients, quotes and contracts from PostgreSQL with an asyncpg pool.
+
+    Table names match ingestion/load_postgres.py.
+    """
+
+    def __init__(self, pool: Any) -> None:
+        self._pool = pool
+
+    async def find_client(self, nom: str, prenom: str, telephone: str) -> Optional[dict[str, Any]]:
+        row = await self._pool.fetchrow(
             """
-            
-            # Configuration SMTP
-            server = smtplib.SMTP(self.smtp_config['host'], self.smtp_config['port'])
+            SELECT id, nom, prenom, email
+            FROM clients
+            WHERE lower(nom) = lower($1)
+              AND lower(prenom) = lower($2)
+              AND right(regexp_replace(telephone, '\\D', '', 'g'), 8) = $3
+            """,
+            nom.strip(), prenom.strip(), telephone,
+        )
+        return dict(row) if row else None
+
+    async def client_records(self, client_id: Any) -> dict[str, Any]:
+        client = await self._pool.fetchrow(
+            "SELECT id, nom, prenom FROM clients WHERE id = $1", client_id
+        )
+        quotes = await self._pool.fetch(
+            "SELECT * FROM devis WHERE client_id = $1 ORDER BY date_devis DESC LIMIT 10", client_id
+        )
+        contracts = await self._pool.fetch(
+            "SELECT * FROM contrats WHERE client_id = $1 ORDER BY date_effet DESC LIMIT 10", client_id
+        )
+        return {
+            "client": dict(client) if client else {},
+            "devis": [dict(r) for r in quotes],
+            "contrats": [dict(r) for r in contracts],
+        }
+
+
+class SmtpCodeSender:
+    """Sends the code by e-mail. smtplib is blocking, so it runs in a worker thread."""
+
+    def __init__(self, host: str, port: int, user: str, password: str, sender: str) -> None:
+        self._host, self._port = host, port
+        self._user, self._password, self._sender = user, password, sender
+
+    def _send(self, email: str, code: str, prenom: str) -> None:
+        message = EmailMessage()
+        message["Subject"] = "Votre code de vérification BHbot"
+        message["From"] = self._sender
+        message["To"] = email
+        message.set_content(
+            f"Bonjour {prenom},\n\n"
+            f"Votre code de vérification est : {code}\n"
+            "Il est valable 10 minutes.\n\n"
+            "Si vous n'êtes pas à l'origine de cette demande, ignorez ce message.\n"
+        )
+        with smtplib.SMTP(self._host, self._port, timeout=20) as server:
             server.starttls()
-            server.login(self.smtp_config['user'], self.smtp_config['password'])
-            
-            # Envoi de l'email
-            message = f"Subject: {subject}\n\n{body}"
-            server.sendmail(
-                self.smtp_config['user'],
-                email,
-                message.encode('utf-8')
-            )
-            server.quit()
-            
-            logger.info(f"✅ Email envoyé à {email}")
-            return True
-            
-        except Exception as e:
-            logger.error(f"❌ Erreur envoi email: {e}")
-            return False
-    
-    async def request_client_verification(self, nom: str, prenom: str, telephone: str, email: str) -> Dict[str, Any]:
-        """Demande de vérification client"""
-        try:
-            # 1. Rechercher le client
-            client = await self.find_client_by_identity(nom, prenom, telephone)
-            
-            if not client:
-                return {
-                    'success': False,
-                    'message': 'Client non trouvé. Vérifiez vos informations.',
-                    'error_type': 'client_not_found'
-                }
-            
-            # 2. Générer le code de vérification
-            code = self.generate_verification_code()
-            
-            # 3. Envoyer l'email
-            email_sent = await self.send_verification_email(email, code, nom, prenom)
-            
-            if not email_sent:
-                return {
-                    'success': False,
-                    'message': 'Erreur lors de l\'envoi de l\'email.',
-                    'error_type': 'email_error'
-                }
-            
-            # 4. Stocker le code temporairement
-            self.active_codes[email] = {
-                'code': code,
-                'timestamp': time.time(),
-                'client_id': client['id'],
-                'client_data': client
-            }
-            
-            return {
-                'success': True,
-                'message': f'Code de vérification envoyé à {email}',
-                'email': email,
-                'expires_in': 600  # 10 minutes
-            }
-            
-        except Exception as e:
-            logger.error(f"❌ Erreur demande vérification: {e}")
-            return {
-                'success': False,
-                'message': 'Erreur interne du système.',
-                'error_type': 'internal_error'
-            }
-    
-    async def verify_code(self, email: str, code: str) -> Dict[str, Any]:
-        """Vérifie le code de vérification"""
-        try:
-            if email not in self.active_codes:
-                return {
-                    'success': False,
-                    'message': 'Aucun code en attente pour cet email.',
-                    'error_type': 'no_pending_code'
-                }
-            
-            stored_data = self.active_codes[email]
-            
-            # Vérifier l'expiration (10 minutes)
-            if time.time() - stored_data['timestamp'] > 600:
-                del self.active_codes[email]
-                return {
-                    'success': False,
-                    'message': 'Code expiré. Veuillez redemander une vérification.',
-                    'error_type': 'code_expired'
-                }
-            
-            # Vérifier le code
-            if stored_data['code'] != code:
-                return {
-                    'success': False,
-                    'message': 'Code incorrect.',
-                    'error_type': 'invalid_code'
-                }
-            
-            # Code valide - créer une session
-            session_token = self.generate_session_token()
-            self.session_tokens[session_token] = {
-                'client_id': stored_data['client_id'],
-                'timestamp': time.time(),
-                'client_data': stored_data['client_data']
-            }
-            
-            # Nettoyer le code utilisé
-            del self.active_codes[email]
-            
-            return {
-                'success': True,
-                'message': 'Authentification réussie !',
-                'session_token': session_token,
-                'client_name': f"{stored_data['client_data']['prenom']} {stored_data['client_data']['nom']}"
-            }
-            
-        except Exception as e:
-            logger.error(f"❌ Erreur vérification code: {e}")
-            return {
-                'success': False,
-                'message': 'Erreur interne du système.',
-                'error_type': 'internal_error'
-            }
-    
-    async def get_client_data(self, session_token: str) -> Dict[str, Any]:
-        """Récupère les données du client authentifié"""
-        try:
-            if session_token not in self.session_tokens:
-                return {
-                    'success': False,
-                    'message': 'Session invalide. Veuillez vous réauthentifier.',
-                    'error_type': 'invalid_session'
-                }
-            
-            session_data = self.session_tokens[session_token]
-            client_id = session_data['client_id']
-            
-            # Vérifier l'expiration de la session (1 heure)
-            if time.time() - session_data['timestamp'] > 3600:
-                del self.session_tokens[session_token]
-                return {
-                    'success': False,
-                    'message': 'Session expirée. Veuillez vous réauthentifier.',
-                    'error_type': 'session_expired'
-                }
-            
-            # Récupérer les données du client
-            conn = psycopg2.connect(**self.db_config)
-            cursor = conn.cursor(cursor_factory=RealDictCursor)
-            
-            # Informations personnelles
-            client_query = """
-            SELECT * FROM "Data_donnees_assurance_s1_clients" 
-            WHERE id = %s
-            """
-            cursor.execute(client_query, (client_id,))
-            client_info = dict(cursor.fetchone())
-            
-            # Devis du client
-            devis_query = """
-            SELECT * FROM "Data_donnees_assurance_s1_devis" 
-            WHERE client_id = %s
-            ORDER BY created_at DESC
-            """
-            cursor.execute(devis_query, (client_id,))
-            devis = [dict(row) for row in cursor.fetchall()]
-            
-            # Contrats du client
-            contrats_query = """
-            SELECT * FROM "Data_donnees_assurance_s1_contrats" 
-            WHERE client_id = %s
-            ORDER BY dateeffet DESC
-            """
-            cursor.execute(contrats_query, (client_id,))
-            contrats = [dict(row) for row in cursor.fetchall()]
-            
-            return {
-                'success': True,
-                'client_info': client_info,
-                'devis': devis,
-                'contrats': contrats,
-                'summary': {
-                    'total_devis': len(devis),
-                    'total_contrats': len(contrats),
-                    'last_devis': devis[0]['created_at'] if devis else None,
-                    'last_contrat': contrats[0]['dateeffet'] if contrats else None
-                }
-            }
-            
-        except Exception as e:
-            logger.error(f"❌ Erreur récupération données: {e}")
-            return {
-                'success': False,
-                'message': 'Erreur lors de la récupération des données.',
-                'error_type': 'data_error'
-            }
-        finally:
-            if 'cursor' in locals():
-                cursor.close()
-            if 'conn' in locals():
-                conn.close()
-    
-    async def logout(self, session_token: str) -> Dict[str, Any]:
-        """Déconnexion du client"""
-        if session_token in self.session_tokens:
-            del self.session_tokens[session_token]
-            return {
-                'success': True,
-                'message': 'Déconnexion réussie.'
-            }
-        else:
-            return {
-                'success': False,
-                'message': 'Session invalide.'
-            }
+            server.login(self._user, self._password)
+            server.send_message(message)
 
-# Configuration par défaut
-DEFAULT_DB_CONFIG = {
-    'host': 'localhost',
-    'port': 5432,
-    'database': 'assurance_db',
-    'user': 'postgres',
-    'password': 'password'
-}
+    async def send_code(self, email: str, code: str, prenom: str) -> None:
+        await asyncio.to_thread(self._send, email, code, prenom)
+        logger.info("Verification code e-mailed")
 
-DEFAULT_SMTP_CONFIG = {
-    'host': 'smtp.gmail.com',
-    'port': 587,
-    'user': 'your-email@gmail.com',
-    'password': 'your-app-password'
-}
 
-# Instance globale
-auth_system = ClientAuthSystem(DEFAULT_DB_CONFIG, DEFAULT_SMTP_CONFIG)
+class DisabledCodeSender:
+    """Used when neither SMTP nor demo mode is configured: authentication can't complete."""
+
+    async def send_code(self, email: str, code: str, prenom: str) -> None:
+        logger.warning("No e-mail sender configured (set SMTP_* or AUTH_DEMO_MODE=true)")
+
+
+class ConsoleCodeSender:
+    """Demo mode (AUTH_DEMO_MODE=true): prints the code in the server console instead of e-mailing it.
+
+    For local demos with the hackathon's fictitious clients only. Never enable it in production.
+    """
+
+    async def send_code(self, email: str, code: str, prenom: str) -> None:
+        logger.warning("[DEMO MODE] verification code: %s", code)

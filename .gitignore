@@ -48,14 +48,11 @@ logs/
 .env.local
 .env.production
 
-# Configuration Files (sensitive)
-config/database.yaml
-config/email.yaml
-config/models.yaml
-
-# Data Directories
+# Data: the hackathon files go in data/raw/ and are committed;
+# generated files are not.
 qdrant_data/
-data/
+data/output/
+output/
 temp/
 tmp/
 
@@ -66,9 +63,6 @@ tmp/
 # OS
 .DS_Store
 Thumbs.db
-
-# Docker
-.dockerignore
 
 # Jupyter Notebooks
 .ipynb_checkpoints/
